@@ -1,0 +1,337 @@
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Card } from "@/components/ui/card";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, Filter, Search } from "lucide-react";
+import { addDays, eachDayOfInterval, format, isWithinInterval } from "date-fns";
+
+// Types
+export type Site = { id: string; name: string; tagIndex: number };
+export type Guard = { id: string; name: string; phone?: string };
+export type AssignmentStatus = "assigned" | "free" | "off" | "leave";
+export type Assignment = {
+  guardId: string;
+  date: string; // YYYY-MM-DD
+  status: AssignmentStatus;
+  siteId?: string; // present when assigned
+};
+
+// Helpers
+const toKey = (d: Date) => format(d, "yyyy-MM-dd");
+
+const siteColorClass = (i: number) => {
+  const map = [
+    "bg-[hsl(var(--tag-1))]",
+    "bg-[hsl(var(--tag-2))]",
+    "bg-[hsl(var(--tag-3))]",
+    "bg-[hsl(var(--tag-4))]",
+    "bg-[hsl(var(--tag-5))]",
+    "bg-[hsl(var(--tag-6))]",
+    "bg-[hsl(var(--tag-7))]",
+    "bg-[hsl(var(--tag-8))]",
+  ];
+  return map[(i - 1) % map.length];
+};
+
+const statusBg = {
+  assigned: "bg-[hsl(var(--status-assigned))] text-[hsl(var(--brand-contrast))]",
+  free: "bg-[hsl(var(--status-free))] text-[hsl(var(--brand-contrast))]",
+  off: "bg-[hsl(var(--status-off))] text-[hsl(var(--foreground))]",
+  leave: "bg-[hsl(var(--status-leave))] text-[hsl(var(--brand-contrast))]",
+} as const;
+
+// Mock data (in real app fetched from backend)
+const SITES: Site[] = [
+  { id: "vega1", name: "Вега Сити1", tagIndex: 1 },
+  { id: "vega2", name: "Вега Сити2", tagIndex: 2 },
+  { id: "хан1", name: "Хан-Хиллс1", tagIndex: 3 },
+  { id: "хан2", name: "Хан-Хиллс2", tagIndex: 4 },
+  { id: "зайсан", name: "Зайсан", tagIndex: 5 },
+  { id: "кристал", name: "Кристал", tagIndex: 6 },
+  { id: "aca", name: "ACA", tagIndex: 7 },
+];
+
+const GUARDS: Guard[] = [
+  { id: "g1", name: "Баярсайхан" },
+  { id: "g2", name: "Билгүүн" },
+  { id: "g3", name: "Пүрэвсүрэн" },
+  { id: "g4", name: "Нямдорж" },
+  { id: "g5", name: "Төгс-Эрдэнэ" },
+  { id: "g6", name: "Сод-Өлзий" },
+  { id: "g7", name: "Амгалан" },
+  { id: "g8", name: "Сэргэлэн" },
+  { id: "g9", name: "Ганбаатар" },
+  { id: "g10", name: "Ариунболд" },
+  { id: "g11", name: "Гантулга" },
+  { id: "g12", name: "Бехчулун" },
+];
+
+function makeMockAssignments(start: Date, end: Date): Assignment[] {
+  const days = eachDayOfInterval({ start, end });
+  const assignments: Assignment[] = [];
+  for (const d of days) {
+    for (const guard of GUARDS) {
+      const dice = (guard.id.charCodeAt(1) + d.getDate()) % 10;
+      if (dice < 2) {
+        assignments.push({ guardId: guard.id, date: toKey(d), status: "off" });
+      } else if (dice === 9) {
+        assignments.push({ guardId: guard.id, date: toKey(d), status: "leave" });
+      } else if (dice < 6) {
+        const site = SITES[(d.getDate() + parseInt(guard.id.replace("g", ""))) % SITES.length];
+        assignments.push({ guardId: guard.id, date: toKey(d), status: "assigned", siteId: site.id });
+      } else {
+        assignments.push({ guardId: guard.id, date: toKey(d), status: "free" });
+      }
+    }
+  }
+  return assignments;
+}
+
+export default function ScheduleBoard() {
+  const isMobile = useIsMobile();
+  const [range, setRange] = useState<{ from: Date; to: Date } | undefined>({
+    from: new Date(2025, 7, 12), // Aug is 7 index
+    to: new Date(2025, 7, 21),
+  });
+  const [query, setQuery] = useState("");
+  const [onlyFree, setOnlyFree] = useState(false);
+
+  const allAssignments = useMemo(() => {
+    const start = range?.from ?? new Date();
+    const end = range?.to ?? addDays(start, 6);
+    return makeMockAssignments(start, end);
+  }, [range]);
+
+  const days = useMemo(() => {
+    const start = range?.from ?? new Date();
+    const end = range?.to ?? addDays(start, 6);
+    return eachDayOfInterval({ start, end });
+  }, [range]);
+
+  const assignmentsByKey = useMemo(() => {
+    const map = new Map<string, Assignment>();
+    for (const a of allAssignments) {
+      map.set(`${a.guardId}_${a.date}`, a);
+    }
+    return map;
+  }, [allAssignments]);
+
+  const filteredGuards = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = GUARDS.filter((g) => g.name.toLowerCase().includes(q));
+    if (!onlyFree) return list;
+    // keep guard if any day in range is free
+    const start = range?.from ?? new Date();
+    const end = range?.to ?? addDays(start, 6);
+    return list.filter((g) =>
+      allAssignments.some(
+        (a) =>
+          a.guardId === g.id &&
+          a.status === "free" &&
+          isWithinInterval(new Date(a.date), { start, end })
+      )
+    );
+  }, [query, onlyFree, allAssignments, range]);
+
+  // SEO runtime tags
+  useEffect(() => {
+    document.title = "Ажлын хуваарь • Хамгаалагчид";
+    const desc = "Менежерүүд хамгаалагчдын ажлын хуваарь, чөлөөтэй болон амралтын өдрүүдийг хурдан шалгана.";
+    const m = document.querySelector('meta[name="description"]');
+    if (m) m.setAttribute("content", desc);
+    else {
+      const meta = document.createElement("meta");
+      meta.name = "description";
+      meta.content = desc;
+      document.head.appendChild(meta);
+    }
+    const canonicalHref = window.location.origin + "/";
+    let link: HTMLLinkElement | null = document.querySelector('link[rel="canonical"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "canonical";
+      document.head.appendChild(link);
+    }
+    link.href = canonicalHref;
+  }, []);
+
+  return (
+    <section className="w-full space-y-6 animate-fade-in">
+      <header className="rounded-xl p-6 border bg-gradient-to-r from-[hsl(var(--background))] to-[hsl(var(--accent))]">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+            Хамгаалагчдын ажлын хуваарь
+          </h1>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <CalendarIcon className="size-4" />
+                  {range?.from ? (
+                    <span>
+                      {format(range.from, "yyyy.MM.dd")} – {format(range?.to ?? range.from, "yyyy.MM.dd")}
+                    </span>
+                  ) : (
+                    <span>Хугацаа сонгох</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={range as any}
+                  onSelect={(r: any) => setRange(r)}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                className="pl-8 w-48"
+                placeholder="Хүний нэрээр хайх"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <Button
+              variant={onlyFree ? "default" : "outline"}
+              onClick={() => setOnlyFree((v) => !v)}
+              className={cn("gap-2", onlyFree ? "bg-[hsl(var(--status-free))] hover:bg-[hsl(var(--status-free))]/90" : "")}
+            >
+              <Filter className="size-4" /> Зөвхөн чөлөөтэй
+            </Button>
+          </div>
+        </div>
+        {/* Legend */}
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Тайлбар:</span>
+          <LegendPill className={statusBg.assigned}>Ээлжинд</LegendPill>
+          <LegendPill className={statusBg.free}>Чөлөөтэй</LegendPill>
+          <LegendPill className={statusBg.off}>Амралт</LegendPill>
+          <LegendPill className={statusBg.leave}>Чөлөө</LegendPill>
+          {SITES.slice(0, 6).map((s) => (
+            <LegendPill key={s.id} className={cn("text-[hsl(var(--brand-contrast))]", siteColorClass(s.tagIndex))}>
+              {s.name}
+            </LegendPill>
+          ))}
+        </div>
+      </header>
+
+      {/* Grid */}
+      <Card className="overflow-auto">
+        <div className="min-w-[900px]">
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `240px repeat(${days.length}, minmax(120px, 1fr))` }}
+          >
+            {/* Header row */}
+            <div className="sticky left-0 top-0 z-20 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-3 font-medium">Ажилтан</div>
+            {days.map((d) => (
+              <div
+                key={toKey(d)}
+                className="sticky top-0 z-10 border-b p-3 text-sm font-medium text-muted-foreground bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+              >
+                <div>{format(d, "yyyy.MM.dd")}</div>
+                <div className="text-xs">{format(d, "EEE", { locale: undefined })}</div>
+              </div>
+            ))}
+
+            {/* Rows */}
+            {filteredGuards.map((g, idx) => (
+              <Row
+                key={g.id}
+                guard={g}
+                days={days}
+                assignmentsByKey={assignmentsByKey}
+                zebra={idx % 2 === 1}
+              />
+            ))}
+          </div>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+function LegendPill({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-black/5",
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Row({
+  guard,
+  days,
+  assignmentsByKey,
+  zebra,
+}: {
+  guard: Guard;
+  days: Date[];
+  assignmentsByKey: Map<string, Assignment>;
+  zebra?: boolean;
+}) {
+  return (
+    <>
+      <div
+        className={cn(
+          "sticky left-0 z-10 border-r p-3 font-medium bg-background",
+          zebra && "bg-accent/40"
+        )}
+      >
+        <div className="truncate">{guard.name}</div>
+        {guard.phone && <div className="text-xs text-muted-foreground">{guard.phone}</div>}
+      </div>
+      {days.map((d) => {
+        const key = `${guard.id}_${toKey(d)}`;
+        const a = assignmentsByKey.get(key);
+        let content: React.ReactNode = null;
+        let cls = "";
+        if (!a) {
+          content = <span className="text-muted-foreground">—</span>;
+        } else if (a.status === "assigned" && a.siteId) {
+          const site = SITES.find((s) => s.id === a.siteId)!;
+          content = (
+            <div
+              className={cn(
+                "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium text-[hsl(var(--brand-contrast))]",
+                siteColorClass(site.tagIndex)
+              )}
+            >
+              {site.name}
+            </div>
+          );
+        } else if (a.status === "free") {
+          content = <Badge className={statusBg.free}>Чөлөөтэй</Badge>;
+        } else if (a.status === "off") {
+          content = <Badge variant="secondary" className={statusBg.off}>Амралт</Badge>;
+        } else if (a.status === "leave") {
+          content = <Badge className={statusBg.leave}>Чөлөө</Badge>;
+        }
+        return (
+          <div
+            key={key}
+            className={cn(
+              "border-b p-2 min-h-[52px] flex items-center justify-center hover:brightness-105 transition-colors",
+              zebra && "bg-accent/40"
+            )}
+          >
+            {content}
+          </div>
+        );
+      })}
+    </>
+  );
+}

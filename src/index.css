@@ -53,6 +53,28 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Brand & decorative tokens */
+    --brand: 222 84% 56%;
+    --brand-contrast: 210 40% 98%;
+    --brand-glow: 222 95% 62%;
+    --gradient-hero: linear-gradient(135deg, hsl(var(--brand) / 0.9), hsl(265 84% 58% / 0.9));
+
+    /* Status tokens */
+    --status-assigned: 221 83% 53%;
+    --status-free: 162 72% 37%;
+    --status-off: 43 96% 56%;
+    --status-leave: 0 84% 60%;
+
+    /* Tag palette for locations (use sequentially) */
+    --tag-1: 210 90% 56%;
+    --tag-2: 12 90% 58%;
+    --tag-3: 160 60% 42%;
+    --tag-4: 46 92% 54%;
+    --tag-5: 265 84% 58%;
+    --tag-6: 330 70% 52%;
+    --tag-7: 190 80% 45%;
+    --tag-8: 280 70% 50%;
   }
 
   .dark {
@@ -91,6 +113,26 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Dark mode counterparts */
+    --brand: 224 76% 48%;
+    --brand-contrast: 0 0% 100%;
+    --brand-glow: 224 90% 60%;
+    --gradient-hero: linear-gradient(135deg, hsl(224 76% 48% / 0.85), hsl(265 84% 58% / 0.85));
+
+    --status-assigned: 224 70% 55%;
+    --status-free: 160 70% 40%;
+    --status-off: 43 90% 52%;
+    --status-leave: 0 70% 55%;
+
+    --tag-1: 210 90% 60%;
+    --tag-2: 12 85% 62%;
+    --tag-3: 160 60% 42%;
+    --tag-4: 46 92% 54%;
+    --tag-5: 265 84% 58%;
+    --tag-6: 330 70% 52%;
+    --tag-7: 190 80% 45%;
+    --tag-8: 280 70% 50%;
   }
 }
 
