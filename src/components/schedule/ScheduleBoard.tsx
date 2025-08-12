@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MobileGuardCard from "./MobileGuardCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Filter, Search } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { addDays, eachDayOfInterval, format, isWithinInterval } from "date-fns";
 
 // Types
@@ -99,7 +101,7 @@ export default function ScheduleBoard() {
     to: new Date(2025, 7, 21),
   });
   const [query, setQuery] = useState("");
-  const [onlyFree, setOnlyFree] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off" | "leave">("all");
 
   const allAssignments = useMemo(() => {
     const start = range?.from ?? new Date();
@@ -124,19 +126,19 @@ export default function ScheduleBoard() {
   const filteredGuards = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = GUARDS.filter((g) => g.name.toLowerCase().includes(q));
-    if (!onlyFree) return list;
-    // keep guard if any day in range is free
+    if (statusFilter === "all") return list;
+    // keep guard if any day in range matches selected status
     const start = range?.from ?? new Date();
     const end = range?.to ?? addDays(start, 6);
     return list.filter((g) =>
       allAssignments.some(
         (a) =>
           a.guardId === g.id &&
-          a.status === "free" &&
+          a.status === statusFilter &&
           isWithinInterval(new Date(a.date), { start, end })
       )
     );
-  }, [query, onlyFree, allAssignments, range]);
+  }, [query, statusFilter, allAssignments, range]);
 
   // SEO runtime tags
   useEffect(() => {
@@ -162,12 +164,10 @@ export default function ScheduleBoard() {
 
   return (
     <section className="w-full space-y-6 animate-fade-in">
-      <header className="rounded-xl p-6 border bg-gradient-to-r from-[hsl(var(--background))] to-[hsl(var(--accent))]">
+      <header className="rounded-xl p-6 border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-            Хамгаалагчдын ажлын хуваарь
-          </h1>
-          <div className="flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Хамгаалагчдын ажлын хуваарь</h1>
+          <div className="flex flex-wrap items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="gap-2">
@@ -182,79 +182,96 @@ export default function ScheduleBoard() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="range"
-                  selected={range as any}
-                  onSelect={(r: any) => setRange(r)}
-                  numberOfMonths={2}
-                />
+                <Calendar mode="range" selected={range as any} onSelect={(r: any) => setRange(r)} numberOfMonths={2} />
               </PopoverContent>
             </Popover>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Өмнөх 7 хоног"
+              onClick={() => {
+                const start = range?.from ?? new Date();
+                setRange({ from: addDays(start, -7), to: addDays(start, -1) });
+              }}
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const today = new Date();
+                setRange({ from: today, to: addDays(today, 6) });
+              }}
+            >
+              Өнөөдрөөс 7
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Дараах 7 хоног"
+              onClick={() => {
+                const ref = range?.to ?? new Date();
+                setRange({ from: addDays(ref, 1), to: addDays(ref, 7) });
+              }}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                className="pl-8 w-48"
-                placeholder="Хүний нэрээр хайх"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+              <Input className="pl-8 w-48" placeholder="Хүний нэрээр хайх" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
-            <Button
-              variant={onlyFree ? "default" : "outline"}
-              onClick={() => setOnlyFree((v) => !v)}
-              className={cn("gap-2", onlyFree ? "bg-[hsl(var(--status-free))] hover:bg-[hsl(var(--status-free))]/90" : "")}
-            >
-              <Filter className="size-4" /> Зөвхөн чөлөөтэй
-            </Button>
           </div>
         </div>
-        {/* Legend */}
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Тайлбар:</span>
-          <LegendPill className={statusBg.assigned}>Ээлжинд</LegendPill>
-          <LegendPill className={statusBg.free}>Чөлөөтэй</LegendPill>
-          <LegendPill className={statusBg.off}>Амралт</LegendPill>
-          <LegendPill className={statusBg.leave}>Чөлөө</LegendPill>
-          {SITES.slice(0, 6).map((s) => (
-            <LegendPill key={s.id} className={cn("text-[hsl(var(--brand-contrast))]", siteColorClass(s.tagIndex))}>
-              {s.name}
-            </LegendPill>
-          ))}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+          <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <TabsList>
+              <TabsTrigger value="all">Бүгд</TabsTrigger>
+              <TabsTrigger value="free">Чөлөөтэй</TabsTrigger>
+              <TabsTrigger value="off">Амралт</TabsTrigger>
+              <TabsTrigger value="leave">Чөлөө</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Тайлбар:</span>
+            <LegendPill className={statusBg.assigned}>Ээлжинд</LegendPill>
+            <LegendPill className={statusBg.free}>Чөлөөтэй</LegendPill>
+            <LegendPill className={statusBg.off}>Амралт</LegendPill>
+            <LegendPill className={statusBg.leave}>Чөлөө</LegendPill>
+          </div>
         </div>
       </header>
 
-      {/* Grid */}
-      <Card className="overflow-auto">
-        <div className="min-w-[900px]">
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: `240px repeat(${days.length}, minmax(120px, 1fr))` }}
-          >
-            {/* Header row */}
-            <div className="sticky left-0 top-0 z-20 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-3 font-medium">Ажилтан</div>
-            {days.map((d) => (
-              <div
-                key={toKey(d)}
-                className="sticky top-0 z-10 border-b p-3 text-sm font-medium text-muted-foreground bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-              >
-                <div>{format(d, "yyyy.MM.dd")}</div>
-                <div className="text-xs">{format(d, "EEE", { locale: undefined })}</div>
-              </div>
-            ))}
-
-            {/* Rows */}
-            {filteredGuards.map((g, idx) => (
-              <Row
-                key={g.id}
-                guard={g}
-                days={days}
-                assignmentsByKey={assignmentsByKey}
-                zebra={idx % 2 === 1}
-              />
-            ))}
-          </div>
+      {/* Content */}
+      {isMobile ? (
+        <div className="space-y-3">
+          {filteredGuards.map((g) => (
+            <MobileGuardCard key={g.id} guard={g} days={days} assignmentsByKey={assignmentsByKey} />
+          ))}
         </div>
-      </Card>
+      ) : (
+        <Card className="overflow-auto">
+          <div className="min-w-[900px]">
+            <div className="grid" style={{ gridTemplateColumns: `240px repeat(${days.length}, minmax(120px, 1fr))` }}>
+              {/* Header row */}
+              <div className="sticky left-0 top-0 z-20 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-3 font-medium">Ажилтан</div>
+              {days.map((d) => (
+                <div
+                  key={toKey(d)}
+                  className="sticky top-0 z-10 border-b p-3 text-sm font-medium text-muted-foreground bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                >
+                  <div>{format(d, "yyyy.MM.dd")}</div>
+                  <div className="text-xs">{format(d, "EEE", { locale: undefined })}</div>
+                </div>
+              ))}
+
+              {/* Rows */}
+              {filteredGuards.map((g) => (
+                <Row key={g.id} guard={g} days={days} assignmentsByKey={assignmentsByKey} />
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
     </section>
   );
 }
@@ -276,21 +293,14 @@ function Row({
   guard,
   days,
   assignmentsByKey,
-  zebra,
 }: {
   guard: Guard;
   days: Date[];
   assignmentsByKey: Map<string, Assignment>;
-  zebra?: boolean;
 }) {
   return (
     <>
-      <div
-        className={cn(
-          "sticky left-0 z-10 border-r p-3 font-medium bg-background",
-          zebra && "bg-accent/40"
-        )}
-      >
+      <div className={cn("sticky left-0 z-10 border-r p-3 font-medium bg-background")}> 
         <div className="truncate">{guard.name}</div>
         {guard.phone && <div className="text-xs text-muted-foreground">{guard.phone}</div>}
       </div>
@@ -304,19 +314,19 @@ function Row({
         } else if (a.status === "assigned" && a.siteId) {
           const site = SITES.find((s) => s.id === a.siteId)!;
           content = (
-            <div
-              className={cn(
-                "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium text-[hsl(var(--brand-contrast))]",
-                siteColorClass(site.tagIndex)
-              )}
-            >
-              {site.name}
+            <div className="inline-flex items-center text-sm font-medium">
+              <span className={cn("inline-block size-2 rounded-full mr-2", siteColorClass(site.tagIndex))} />
+              <span className="truncate max-w-[10rem]" title={site.name}>{site.name}</span>
             </div>
           );
         } else if (a.status === "free") {
           content = <Badge className={statusBg.free}>Чөлөөтэй</Badge>;
         } else if (a.status === "off") {
-          content = <Badge variant="secondary" className={statusBg.off}>Амралт</Badge>;
+          content = (
+            <Badge variant="secondary" className={statusBg.off}>
+              Амралт
+            </Badge>
+          );
         } else if (a.status === "leave") {
           content = <Badge className={statusBg.leave}>Чөлөө</Badge>;
         }
@@ -324,8 +334,7 @@ function Row({
           <div
             key={key}
             className={cn(
-              "border-b p-2 min-h-[52px] flex items-center justify-center hover:brightness-105 transition-colors",
-              zebra && "bg-accent/40"
+              "border-b p-2 min-h-[44px] flex items-center justify-center hover:bg-accent/30 transition-colors"
             )}
           >
             {content}
