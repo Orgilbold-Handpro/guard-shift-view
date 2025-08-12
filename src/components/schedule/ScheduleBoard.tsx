@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import MobileGuardCard from "./MobileGuardCard";
+import MobileSiteCard from "./MobileSiteCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
@@ -125,37 +125,37 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
     return map;
   }, [allAssignments]);
 
-  const filteredGuards = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let list = GUARDS.filter((g) => g.name.toLowerCase().includes(q));
+  const guardMap = useMemo(() => {
+    const m = new Map<string, Guard>();
+    for (const g of GUARDS) m.set(g.id, g);
+    return m;
+  }, []);
 
-    const start = range?.from ?? new Date();
-    const end = range?.to ?? addDays(start, 6);
+  const assignmentsBySiteDate = useMemo(() => {
+    const m = new Map<string, Guard[]>();
+    for (const a of allAssignments) {
+      if (a.status === "assigned" && a.siteId) {
+        const key = `${a.siteId}_${a.date}`;
+        const g = guardMap.get(a.guardId);
+        if (g) {
+          if (!m.has(key)) m.set(key, []);
+          m.get(key)!.push(g);
+        }
+      }
+    }
+    return m;
+  }, [allAssignments, guardMap]);
+
+  const filteredSites = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = SITES.filter((s) => s.name.toLowerCase().includes(q));
 
     if (siteFilter !== "all") {
-      list = list.filter((g) =>
-        allAssignments.some(
-          (a) =>
-            a.guardId === g.id &&
-            a.status === "assigned" &&
-            a.siteId === siteFilter &&
-            isWithinInterval(new Date(a.date), { start, end })
-        )
-      );
-    }
-
-    if (statusFilter !== "all") {
-      list = list.filter((g) =>
-        allAssignments.some((a) => {
-          const matchStatus =
-            statusFilter === "free" ? a.status === "free" || a.status === "leave" : a.status === "off";
-          return a.guardId === g.id && matchStatus && isWithinInterval(new Date(a.date), { start, end });
-        })
-      );
+      list = list.filter((s) => s.id === siteFilter);
     }
 
     return list;
-  }, [query, statusFilter, siteFilter, allAssignments, range]);
+  }, [query, siteFilter]);
 
   // SEO runtime tags
   useEffect(() => {
@@ -236,7 +236,7 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
-                <Input className="pl-8 w-48" placeholder="Хүний нэрээр хайх" value={query} onChange={(e) => setQuery(e.target.value)} />
+                <Input className="pl-8 w-48" placeholder="Хотхоны нэрээр хайх" value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
               <Select value={siteFilter} onValueChange={(v) => setSiteFilter(v)}>
                 <SelectTrigger className="w-48">
@@ -267,10 +267,9 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
       </header>
 
       {/* Content */}
-      {isMobile ? (
         <div className="space-y-3">
-          {filteredGuards.map((g) => (
-            <MobileGuardCard key={g.id} guard={g} days={days} assignmentsByKey={assignmentsByKey} />
+          {filteredSites.map((s) => (
+            <MobileSiteCard key={s.id} site={s} days={days} assignmentsBySiteDate={assignmentsBySiteDate} />
           ))}
         </div>
       ) : (
@@ -278,7 +277,7 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
           <div className="min-w-[900px]">
             <div className="grid" style={{ gridTemplateColumns: `240px repeat(${days.length}, minmax(120px, 1fr))` }}>
               {/* Header row */}
-              <div className="sticky left-0 top-0 z-20 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-3 font-medium">Ажилтан</div>
+              <div className="sticky left-0 top-0 z-20 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-3 font-medium">Хотхон</div>
               {days.map((d) => {
                 const isToday = toKey(d) === toKey(new Date());
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
@@ -299,8 +298,8 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
               })}
 
               {/* Rows */}
-              {filteredGuards.map((g, idx) => (
-                <Row key={g.id} idx={idx + 1} guard={g} days={days} assignmentsByKey={assignmentsByKey} />
+              {filteredSites.map((s, idx) => (
+                <SiteRow key={s.id} idx={idx + 1} site={s} days={days} assignmentsBySiteDate={assignmentsBySiteDate} />
               ))}
             </div>
           </div>
@@ -311,52 +310,40 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
 }
 
 
-function Row({
+function SiteRow({
   idx,
-  guard,
+  site,
   days,
-  assignmentsByKey,
+  assignmentsBySiteDate,
 }: {
   idx: number;
-  guard: Guard;
+  site: Site;
   days: Date[];
-  assignmentsByKey: Map<string, Assignment>;
+  assignmentsBySiteDate: Map<string, Guard[]>;
 }) {
   return (
     <>
-      <div className={cn("sticky left-0 z-10 border-r p-3 font-medium bg-background")}>
+      <div className={cn("sticky left-0 z-10 border-r p-3 font-medium bg-background")}> 
         <div className="truncate">
           <span className="text-muted-foreground mr-2 tabular-nums">{idx}.</span>
-          {guard.name}
+          {site.name}
         </div>
-        {guard.phone && <div className="text-xs text-muted-foreground">{guard.phone}</div>}
       </div>
       {days.map((d) => {
-        const key = `${guard.id}_${toKey(d)}`;
-        const a = assignmentsByKey.get(key);
+        const key = `${site.id}_${toKey(d)}`;
+        const guards = assignmentsBySiteDate.get(key) || [];
         const isToday = toKey(d) === toKey(new Date());
-        let content: React.ReactNode = null;
-        let cls = "";
-        if (!a) {
-          content = <span className="text-muted-foreground">—</span>;
-        } else if (a.status === "assigned" && a.siteId) {
-          const site = SITES.find((s) => s.id === a.siteId)!;
+        let content: React.ReactNode = <span className="text-muted-foreground">—</span>;
+        if (guards.length > 0) {
           content = (
-            <div className="inline-flex items-center text-sm font-medium">
-              <span className={cn("inline-block size-2 rounded-full mr-2", siteColorClass(site.tagIndex))} />
-              <span className="truncate max-w-[10rem]" title={site.name}>{site.name}</span>
+            <div className="flex flex-col items-center gap-1">
+              {guards.map((g) => (
+                <span key={g.id} className="text-sm font-medium truncate max-w-[10rem]" title={g.name}>
+                  {g.name}
+                </span>
+              ))}
             </div>
           );
-        } else if (a.status === "free" || a.status === "leave") {
-          content = <Badge className={statusBg.free}>Чөлөөтэй</Badge>;
-          cls = "bg-[hsl(var(--status-free))/0.12]";
-        } else if (a.status === "off") {
-          content = (
-            <Badge variant="secondary" className={statusBg.off}>
-              Амралт
-            </Badge>
-          );
-          cls = "bg-[hsl(var(--status-off))/0.12]";
         }
         return (
           <div
@@ -364,7 +351,6 @@ function Row({
             className={cn(
               "border-b p-2 min-h-[44px] flex items-center justify-center transition-colors",
               "hover:bg-accent/30",
-              cls,
               isToday && "ring-1 ring-primary/10"
             )}
           >
