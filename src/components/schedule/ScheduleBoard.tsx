@@ -258,14 +258,6 @@ export default function ScheduleBoard() {
                 const isToday = toKey(d) === toKey(new Date());
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                 const dayKey = toKey(d);
-                let assigned = 0, free = 0, off = 0;
-                for (const g of filteredGuards) {
-                  const a = assignmentsByKey.get(`${g.id}_${dayKey}`);
-                  if (!a) continue;
-                  if (a.status === "assigned") assigned++;
-                  else if (a.status === "off") off++;
-                  else if (a.status === "free" || a.status === "leave") free++;
-                }
                 return (
                   <div
                     key={dayKey}
@@ -277,7 +269,6 @@ export default function ScheduleBoard() {
                   >
                     <div>{format(d, "yyyy.MM.dd")}</div>
                     <div className="text-xs">{format(d, "EEE", { locale: undefined })}</div>
-                    <div className="mt-1 text-[10px] md:text-xs text-muted-foreground/80">{`Ээлжинд ${assigned} • Чөлөөтэй ${free} • Амралт ${off}`}</div>
                   </div>
                 );
               })}
