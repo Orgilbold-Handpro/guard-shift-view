@@ -254,15 +254,33 @@ export default function ScheduleBoard() {
             <div className="grid" style={{ gridTemplateColumns: `240px repeat(${days.length}, minmax(120px, 1fr))` }}>
               {/* Header row */}
               <div className="sticky left-0 top-0 z-20 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-3 font-medium">Ажилтан</div>
-              {days.map((d) => (
-                <div
-                  key={toKey(d)}
-                  className="sticky top-0 z-10 border-b p-3 text-sm font-medium text-muted-foreground bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-                >
-                  <div>{format(d, "yyyy.MM.dd")}</div>
-                  <div className="text-xs">{format(d, "EEE", { locale: undefined })}</div>
-                </div>
-              ))}
+              {days.map((d) => {
+                const isToday = toKey(d) === toKey(new Date());
+                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                const dayKey = toKey(d);
+                let assigned = 0, free = 0, off = 0;
+                for (const g of filteredGuards) {
+                  const a = assignmentsByKey.get(`${g.id}_${dayKey}`);
+                  if (!a) continue;
+                  if (a.status === "assigned") assigned++;
+                  else if (a.status === "off") off++;
+                  else if (a.status === "free" || a.status === "leave") free++;
+                }
+                return (
+                  <div
+                    key={dayKey}
+                    className={cn(
+                      "sticky top-0 z-10 border-b p-3 text-sm font-medium text-muted-foreground bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+                      isWeekend && "bg-muted/50",
+                      isToday && "ring-1 ring-primary/20"
+                    )}
+                  >
+                    <div>{format(d, "yyyy.MM.dd")}</div>
+                    <div className="text-xs">{format(d, "EEE", { locale: undefined })}</div>
+                    <div className="mt-1 text-[10px] md:text-xs text-muted-foreground/80">{`Ээлжинд ${assigned} • Чөлөөтэй ${free} • Амралт ${off}`}</div>
+                  </div>
+                );
+              })}
 
               {/* Rows */}
               {filteredGuards.map((g) => (
@@ -307,6 +325,7 @@ function Row({
       {days.map((d) => {
         const key = `${guard.id}_${toKey(d)}`;
         const a = assignmentsByKey.get(key);
+        const isToday = toKey(d) === toKey(new Date());
         let content: React.ReactNode = null;
         let cls = "";
         if (!a) {
@@ -319,22 +338,25 @@ function Row({
               <span className="truncate max-w-[10rem]" title={site.name}>{site.name}</span>
             </div>
           );
-        } else if (a.status === "free") {
+        } else if (a.status === "free" || a.status === "leave") {
           content = <Badge className={statusBg.free}>Чөлөөтэй</Badge>;
+          cls = "bg-[hsl(var(--status-free))/0.12]";
         } else if (a.status === "off") {
           content = (
             <Badge variant="secondary" className={statusBg.off}>
               Амралт
             </Badge>
           );
-        } else if (a.status === "leave") {
-          content = <Badge className={statusBg.leave}>Чөлөө</Badge>;
+          cls = "bg-[hsl(var(--status-off))/0.12]";
         }
         return (
           <div
             key={key}
             className={cn(
-              "border-b p-2 min-h-[44px] flex items-center justify-center hover:bg-accent/30 transition-colors"
+              "border-b p-2 min-h-[44px] flex items-center justify-center transition-colors",
+              "hover:bg-accent/30",
+              cls,
+              isToday && "ring-1 ring-primary/10"
             )}
           >
             {content}

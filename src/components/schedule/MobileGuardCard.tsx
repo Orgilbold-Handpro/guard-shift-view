@@ -44,6 +44,8 @@ export default function MobileGuardCard({
       <div className="space-y-2">
         {days.map((d) => {
           const dateKey = format(d, "yyyy-MM-dd");
+          const isToday = dateKey === format(new Date(), "yyyy-MM-dd");
+          const isWeekend = d.getDay() === 0 || d.getDay() === 6;
           const a = assignmentsByKey.get(`${guard.id}_${dateKey}`);
           let content: React.ReactNode = <span className="text-muted-foreground">—</span>;
 
@@ -60,11 +62,11 @@ export default function MobileGuardCard({
           } else if (a?.status === "off") {
             content = <Badge variant="secondary" className={statusBg.off}>Амралт</Badge>;
           } else if (a?.status === "leave") {
-            content = <Badge className={statusBg.leave}>Чөлөө</Badge>;
+            content = <Badge className={statusBg.free}>Чөлөөтэй</Badge>;
           }
 
           return (
-            <div key={dateKey} className="flex items-center justify-between border rounded-lg px-3 py-2">
+            <div key={dateKey} className={cn("flex items-center justify-between border rounded-lg px-3 py-2", isToday && "ring-1 ring-primary/20", isWeekend && "bg-muted/50") }>
               <div className="text-sm">
                 <div className="font-medium">{format(d, "yyyy.MM.dd")}</div>
                 <div className="text-xs text-muted-foreground">{format(d, "EEE")}</div>
