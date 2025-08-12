@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MobileSiteCard from "./MobileSiteCard";
+import AssignGuardDialog from "./AssignGuardDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
@@ -105,10 +106,16 @@ export default function ScheduleBoard() {
 const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
   const [siteFilter, setSiteFilter] = useState<string>("all");
 
-  const allAssignments = useMemo(() => {
+  const [assignments, setAssignments] = useState<Assignment[]>(() => {
     const start = range?.from ?? new Date();
     const end = range?.to ?? addDays(start, 6);
     return makeMockAssignments(start, end);
+  });
+
+  useEffect(() => {
+    const start = range?.from ?? new Date();
+    const end = range?.to ?? addDays(start, 6);
+    setAssignments(makeMockAssignments(start, end));
   }, [range]);
 
   const days = useMemo(() => {
@@ -119,11 +126,11 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
 
   const assignmentsByKey = useMemo(() => {
     const map = new Map<string, Assignment>();
-    for (const a of allAssignments) {
+    for (const a of assignments) {
       map.set(`${a.guardId}_${a.date}`, a);
     }
     return map;
-  }, [allAssignments]);
+  }, [assignments]);
 
   const guardMap = useMemo(() => {
     const m = new Map<string, Guard>();
@@ -133,7 +140,7 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
 
   const assignmentsBySiteDate = useMemo(() => {
     const m = new Map<string, Guard[]>();
-    for (const a of allAssignments) {
+    for (const a of assignments) {
       if (a.status === "assigned" && a.siteId) {
         const key = `${a.siteId}_${a.date}`;
         const g = guardMap.get(a.guardId);
@@ -144,7 +151,7 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
       }
     }
     return m;
-  }, [allAssignments, guardMap]);
+  }, [assignments, guardMap]);
 
   const filteredSites = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -156,6 +163,32 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
 
     return list;
   }, [query, siteFilter]);
+
+  // Editing dialog state
+  const [editCell, setEditCell] = useState<{ siteId: string; date: string; guardId?: string } | null>(null);
+  const isEditOpen = !!editCell;
+  const handleOpenEdit = (siteId: string, date: string, guardId?: string) => setEditCell({ siteId, date, guardId });
+  const handleCloseEdit = () => setEditCell(null);
+  const handleSaveAssignment = (newGuardId: string | null) => {
+    if (!editCell) return;
+    const { siteId, date } = editCell;
+    setAssignments((prev) => {
+      const next = prev.map((a) => ({ ...a }));
+      for (const a of next) {
+        if (a.date === date && a.status === "assigned" && a.siteId === siteId && a.guardId !== newGuardId) {
+          a.status = "free";
+          delete a.siteId;
+        }
+      }
+      if (newGuardId) {
+        const idx = next.findIndex((a) => a.guardId === newGuardId && a.date === date);
+        if (idx >= 0) next[idx] = { ...next[idx], status: "assigned", siteId };
+        else next.push({ guardId: newGuardId, date, status: "assigned", siteId });
+      }
+      return next;
+    });
+    setEditCell(null);
+  };
 
   // SEO runtime tags
   useEffect(() => {
@@ -270,7 +303,7 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
       {isMobile ? (
         <div className="space-y-3">
           {filteredSites.map((s) => (
-            <MobileSiteCard key={s.id} site={s} days={days} assignmentsBySiteDate={assignmentsBySiteDate} />
+            <MobileSiteCard key={s.id} site={s} days={days} assignmentsBySiteDate={assignmentsBySiteDate} onEditCell={handleOpenEdit} />
           ))}
         </div>
       ) : (
@@ -300,13 +333,20 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
 
               {/* Rows */}
               {filteredSites.map((s, idx) => (
-                <SiteRow key={s.id} idx={idx + 1} site={s} days={days} assignmentsBySiteDate={assignmentsBySiteDate} />
+                <SiteRow key={s.id} idx={idx + 1} site={s} days={days} assignmentsBySiteDate={assignmentsBySiteDate} onEditCell={handleOpenEdit} />
               ))}
             </div>
           </div>
         </Card>
       )}
 
+      <AssignGuardDialog
+        open={isEditOpen}
+        onOpenChange={(o) => (o ? null : handleCloseEdit())}
+        guards={GUARDS}
+        currentGuardId={editCell?.guardId}
+        onSave={handleSaveAssignment}
+      />
     </section>
   );
 }
@@ -317,11 +357,13 @@ function SiteRow({
   site,
   days,
   assignmentsBySiteDate,
+  onEditCell,
 }: {
   idx: number;
   site: Site;
   days: Date[];
   assignmentsBySiteDate: Map<string, Guard[]>;
+  onEditCell: (siteId: string, date: string, guardId?: string) => void;
 }) {
   return (
     <>
@@ -335,14 +377,18 @@ function SiteRow({
         const key = `${site.id}_${toKey(d)}`;
         const guards = assignmentsBySiteDate.get(key) || [];
         const isToday = toKey(d) === toKey(new Date());
-        let content: React.ReactNode = <span className="text-muted-foreground">—</span>;
+        let content: React.ReactNode = (
+          <Button variant="destructive" size="sm" onClick={() => onEditCell(site.id, toKey(d))}>
+            Хоосон
+          </Button>
+        );
         if (guards.length > 0) {
           content = (
             <div className="flex flex-col items-center gap-1">
               {guards.map((g) => (
-                <span key={g.id} className="text-sm font-medium truncate max-w-[10rem]" title={g.name}>
+                <Button key={g.id} variant="link" size="sm" className="px-0" onClick={() => onEditCell(site.id, toKey(d), g.id)} title={g.name}>
                   {g.name}
-                </span>
+                </Button>
               ))}
             </div>
           );

@@ -1,5 +1,6 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Site, Guard } from "./ScheduleBoard";
@@ -8,9 +9,10 @@ type Props = {
   site: Site;
   days: Date[];
   assignmentsBySiteDate: Map<string, Guard[]>;
+  onEditCell: (siteId: string, date: string, guardId?: string) => void;
 };
 
-export default function MobileSiteCard({ site, days, assignmentsBySiteDate }: Props) {
+export default function MobileSiteCard({ site, days, assignmentsBySiteDate, onEditCell }: Props) {
   return (
     <Card className="p-4">
       <div className="mb-3">
@@ -40,13 +42,15 @@ export default function MobileSiteCard({ site, days, assignmentsBySiteDate }: Pr
                 {guards.length > 0 ? (
                   <div className="flex flex-col items-end gap-1">
                     {guards.map((g) => (
-                      <span key={g.id} className="text-sm font-medium truncate" title={g.name}>
+                      <Button key={g.id} variant="link" size="sm" className="px-0" onClick={() => onEditCell(site.id, dateKey, g.id)} title={g.name}>
                         {g.name}
-                      </span>
+                      </Button>
                     ))}
                   </div>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <Button variant="destructive" size="sm" onClick={() => onEditCell(site.id, dateKey)}>
+                    Хоосон
+                  </Button>
                 )}
               </div>
             </div>
