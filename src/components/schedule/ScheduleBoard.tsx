@@ -283,8 +283,8 @@ export default function ScheduleBoard() {
               })}
 
               {/* Rows */}
-              {filteredGuards.map((g) => (
-                <Row key={g.id} guard={g} days={days} assignmentsByKey={assignmentsByKey} />
+              {filteredGuards.map((g, idx) => (
+                <Row key={g.id} idx={idx + 1} guard={g} days={days} assignmentsByKey={assignmentsByKey} />
               ))}
             </div>
           </div>
@@ -308,18 +308,23 @@ function LegendPill({ className, children }: { className?: string; children: Rea
 }
 
 function Row({
+  idx,
   guard,
   days,
   assignmentsByKey,
 }: {
+  idx: number;
   guard: Guard;
   days: Date[];
   assignmentsByKey: Map<string, Assignment>;
 }) {
   return (
     <>
-      <div className={cn("sticky left-0 z-10 border-r p-3 font-medium bg-background")}> 
-        <div className="truncate">{guard.name}</div>
+      <div className={cn("sticky left-0 z-10 border-r p-3 font-medium bg-background")}>
+        <div className="truncate">
+          <span className="text-muted-foreground mr-2 tabular-nums">{idx}.</span>
+          {guard.name}
+        </div>
         {guard.phone && <div className="text-xs text-muted-foreground">{guard.phone}</div>}
       </div>
       {days.map((d) => {
