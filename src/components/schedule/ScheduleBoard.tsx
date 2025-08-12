@@ -338,12 +338,7 @@ function Row({
         let content: React.ReactNode = null;
         let cls = "";
         if (!a) {
-          content = (
-            <Badge variant="secondary" className={statusBg.off}>
-              Амралт
-            </Badge>
-          );
-          cls = "bg-[hsl(var(--status-off))/0.12]";
+          content = <span className="text-muted-foreground">—</span>;
         } else if (a.status === "assigned" && a.siteId) {
           const site = SITES.find((s) => s.id === a.siteId)!;
           content = (
