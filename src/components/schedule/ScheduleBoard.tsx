@@ -101,7 +101,7 @@ export default function ScheduleBoard() {
     to: new Date(2025, 7, 21),
   });
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off" | "leave">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
 
   const allAssignments = useMemo(() => {
     const start = range?.from ?? new Date();
@@ -228,7 +228,7 @@ export default function ScheduleBoard() {
               <TabsTrigger value="all">Бүгд</TabsTrigger>
               <TabsTrigger value="free">Чөлөөтэй</TabsTrigger>
               <TabsTrigger value="off">Амралт</TabsTrigger>
-              <TabsTrigger value="leave">Чөлөө</TabsTrigger>
+              
             </TabsList>
           </Tabs>
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -236,7 +236,7 @@ export default function ScheduleBoard() {
             <LegendPill className={statusBg.assigned}>Ээлжинд</LegendPill>
             <LegendPill className={statusBg.free}>Чөлөөтэй</LegendPill>
             <LegendPill className={statusBg.off}>Амралт</LegendPill>
-            <LegendPill className={statusBg.leave}>Чөлөө</LegendPill>
+            
           </div>
         </div>
       </header>
