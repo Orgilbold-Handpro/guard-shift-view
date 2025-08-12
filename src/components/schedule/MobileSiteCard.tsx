@@ -39,19 +39,20 @@ export default function MobileSiteCard({ site, days, assignmentsBySiteDate, onEd
                 <div className="text-xs text-muted-foreground">{format(d, "EEE")}</div>
               </div>
               <div className="max-w-[55%] flex-shrink-0">
-                {guards.length > 0 ? (
-                  <div className="flex flex-col items-end gap-1">
-                    {guards.map((g) => (
+                <div className="flex flex-col items-end gap-1">
+                  {Array.from({ length: site.capacity ?? 1 }).map((_, i) => {
+                    const g = guards[i];
+                    return g ? (
                       <Button key={g.id} variant="link" size="sm" className="px-0" onClick={() => onEditCell(site.id, dateKey, g.id)} title={g.name}>
                         {g.name}
                       </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <Button variant="destructive" size="sm" onClick={() => onEditCell(site.id, dateKey)}>
-                    Хоосон
-                  </Button>
-                )}
+                    ) : (
+                      <Button key={`empty-${i}`} variant="destructive" size="sm" onClick={() => onEditCell(site.id, dateKey)}>
+                        Хоосон
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           );

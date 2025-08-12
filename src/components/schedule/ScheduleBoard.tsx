@@ -15,7 +15,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { addDays, eachDayOfInterval, format, isWithinInterval } from "date-fns";
 
 // Types
-export type Site = { id: string; name: string; tagIndex: number };
+export type Site = { id: string; name: string; tagIndex: number; capacity: number };
 export type Guard = { id: string; name: string; phone?: string };
 export type AssignmentStatus = "assigned" | "free" | "off" | "leave";
 export type Assignment = {
@@ -51,13 +51,13 @@ const statusBg = {
 
 // Mock data (in real app fetched from backend)
 const SITES: Site[] = [
-  { id: "vega1", name: "Вега Сити1", tagIndex: 1 },
-  { id: "vega2", name: "Вега Сити2", tagIndex: 2 },
-  { id: "хан1", name: "Хан-Хиллс1", tagIndex: 3 },
-  { id: "хан2", name: "Хан-Хиллс2", tagIndex: 4 },
-  { id: "зайсан", name: "Зайсан", tagIndex: 5 },
-  { id: "кристал", name: "Кристал", tagIndex: 6 },
-  { id: "aca", name: "ACA", tagIndex: 7 },
+  { id: "vega1", name: "Вега Сити1", tagIndex: 1, capacity: 2 },
+  { id: "vega2", name: "Вега Сити2", tagIndex: 2, capacity: 1 },
+  { id: "хан1", name: "Хан-Хиллс1", tagIndex: 3, capacity: 3 },
+  { id: "хан2", name: "Хан-Хиллс2", tagIndex: 4, capacity: 2 },
+  { id: "зайсан", name: "Зайсан", tagIndex: 5, capacity: 1 },
+  { id: "кристал", name: "Кристал", tagIndex: 6, capacity: 2 },
+  { id: "aca", name: "ACA", tagIndex: 7, capacity: 1 },
 ];
 
 const GUARDS: Guard[] = [
@@ -171,20 +171,35 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
   const handleCloseEdit = () => setEditCell(null);
   const handleSaveAssignment = (newGuardId: string | null) => {
     if (!editCell) return;
-    const { siteId, date } = editCell;
+    const { siteId, date, guardId: prevGuardId } = editCell;
     setAssignments((prev) => {
       const next = prev.map((a) => ({ ...a }));
-      for (const a of next) {
-        if (a.date === date && a.status === "assigned" && a.siteId === siteId && a.guardId !== newGuardId) {
-          a.status = "free";
-          delete a.siteId;
+
+      // 1) If we are editing an existing guard, optionally clear or replace
+      if (prevGuardId) {
+        const prevIdx = next.findIndex((a) => a.guardId === prevGuardId && a.date === date);
+        if (prevIdx >= 0) {
+          if (!newGuardId) {
+            // Remove previous assignment (set to free)
+            next[prevIdx].status = "free";
+            delete next[prevIdx].siteId;
+          } else if (newGuardId !== prevGuardId) {
+            // Free previous and assign new guard
+            next[prevIdx].status = "free";
+            delete next[prevIdx].siteId;
+
+            const newIdx = next.findIndex((a) => a.guardId === newGuardId && a.date === date);
+            if (newIdx >= 0) next[newIdx] = { ...next[newIdx], status: "assigned", siteId };
+            else next.push({ guardId: newGuardId, date, status: "assigned", siteId });
+          }
         }
-      }
-      if (newGuardId) {
+      } else if (newGuardId) {
+        // 2) Adding a new guard to this site/date without affecting other assigned guards
         const idx = next.findIndex((a) => a.guardId === newGuardId && a.date === date);
         if (idx >= 0) next[idx] = { ...next[idx], status: "assigned", siteId };
         else next.push({ guardId: newGuardId, date, status: "assigned", siteId });
       }
+
       return next;
     });
     setEditCell(null);
