@@ -47,7 +47,9 @@ export default function MobileGuardCard({
           const isToday = dateKey === format(new Date(), "yyyy-MM-dd");
           const isWeekend = d.getDay() === 0 || d.getDay() === 6;
           const a = assignmentsByKey.get(`${guard.id}_${dateKey}`);
-          let content: React.ReactNode = <span className="text-muted-foreground">—</span>;
+          let content: React.ReactNode = (
+            <Badge variant="secondary" className={statusBg.off}>Амралт</Badge>
+          );
 
           if (a?.status === "assigned" && a.siteId) {
             const siteTagIndex = parseInt(a.siteId.replace(/[^0-9]/g, "")) || 1;
