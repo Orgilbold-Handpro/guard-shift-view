@@ -6,6 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MobileGuardCard from "./MobileGuardCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -101,7 +102,8 @@ export default function ScheduleBoard() {
     to: new Date(2025, 7, 21),
   });
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
+const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
+  const [siteFilter, setSiteFilter] = useState<string>("all");
 
   const allAssignments = useMemo(() => {
     const start = range?.from ?? new Date();
@@ -125,20 +127,35 @@ export default function ScheduleBoard() {
 
   const filteredGuards = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = GUARDS.filter((g) => g.name.toLowerCase().includes(q));
-    if (statusFilter === "all") return list;
-    // keep guard if any day in range matches selected status
+    let list = GUARDS.filter((g) => g.name.toLowerCase().includes(q));
+
     const start = range?.from ?? new Date();
     const end = range?.to ?? addDays(start, 6);
-    return list.filter((g) =>
-      allAssignments.some(
-        (a) =>
-          a.guardId === g.id &&
-          a.status === statusFilter &&
-          isWithinInterval(new Date(a.date), { start, end })
-      )
-    );
-  }, [query, statusFilter, allAssignments, range]);
+
+    if (siteFilter !== "all") {
+      list = list.filter((g) =>
+        allAssignments.some(
+          (a) =>
+            a.guardId === g.id &&
+            a.status === "assigned" &&
+            a.siteId === siteFilter &&
+            isWithinInterval(new Date(a.date), { start, end })
+        )
+      );
+    }
+
+    if (statusFilter !== "all") {
+      list = list.filter((g) =>
+        allAssignments.some((a) => {
+          const matchStatus =
+            statusFilter === "free" ? a.status === "free" || a.status === "leave" : a.status === "off";
+          return a.guardId === g.id && matchStatus && isWithinInterval(new Date(a.date), { start, end });
+        })
+      );
+    }
+
+    return list;
+  }, [query, statusFilter, siteFilter, allAssignments, range]);
 
   // SEO runtime tags
   useEffect(() => {
@@ -216,9 +233,24 @@ export default function ScheduleBoard() {
             >
               <ChevronRight className="size-4" />
             </Button>
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
-              <Input className="pl-8 w-48" placeholder="Хүний нэрээр хайх" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+                <Input className="pl-8 w-48" placeholder="Хүний нэрээр хайх" value={query} onChange={(e) => setQuery(e.target.value)} />
+              </div>
+              <Select value={siteFilter} onValueChange={(v) => setSiteFilter(v)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Хотхон" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Бүх хотхон</SelectItem>
+                  {SITES.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -231,13 +263,6 @@ export default function ScheduleBoard() {
               
             </TabsList>
           </Tabs>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Тайлбар:</span>
-            <LegendPill className={statusBg.assigned}>Ээлжинд</LegendPill>
-            <LegendPill className={statusBg.free}>Чөлөөтэй</LegendPill>
-            <LegendPill className={statusBg.off}>Амралт</LegendPill>
-            
-          </div>
         </div>
       </header>
 
@@ -285,18 +310,6 @@ export default function ScheduleBoard() {
   );
 }
 
-function LegendPill({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-black/5",
-        className
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 function Row({
   idx,
