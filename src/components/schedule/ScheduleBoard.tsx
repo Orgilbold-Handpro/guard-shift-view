@@ -267,6 +267,7 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
       </header>
 
       {/* Content */}
+      {isMobile ? (
         <div className="space-y-3">
           {filteredSites.map((s) => (
             <MobileSiteCard key={s.id} site={s} days={days} assignmentsBySiteDate={assignmentsBySiteDate} />
@@ -305,6 +306,7 @@ const [statusFilter, setStatusFilter] = useState<"all" | "free" | "off">("all");
           </div>
         </Card>
       )}
+
     </section>
   );
 }
