@@ -417,7 +417,15 @@ function SiteRow({
               isToday && "ring-1 ring-primary/10"
             )}
           >
-            {content}
+            <div className="flex flex-col items-center gap-1">
+              {content}
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>{guards.length}/{site.capacity ?? 1}</span>
+                {guards.length < (site.capacity ?? 1) && (
+                  <Badge variant="destructive" className="h-4 px-1.5">Дутуу</Badge>
+                )}
+              </div>
+            </div>
           </div>
         );
       })}
