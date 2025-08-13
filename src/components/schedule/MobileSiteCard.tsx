@@ -50,18 +50,16 @@ export default function MobileSiteCard({ site, days, assignmentsBySiteDate, onEd
                       <Badge variant="destructive" className="h-5 px-1.5">Дутуу</Badge>
                     )}
                   </div>
-                  {Array.from({ length: site.capacity ?? 1 }).map((_, i) => {
-                    const g = guards[i];
-                    return g ? (
-                      <Button key={g.id} variant="link" size="sm" className="px-0" onClick={() => onEditCell(site.id, dateKey, g.id)} title={g.name}>
-                        {g.name}
-                      </Button>
-                    ) : (
-                      <Button key={`empty-${i}`} variant="destructive" size="sm" onClick={() => onEditCell(site.id, dateKey)}>
-                        Хоосон
-                      </Button>
-                    );
-                  })}
+                  {guards.map((g) => (
+                    <Button key={g.id} variant="link" size="sm" className="px-0" onClick={() => onEditCell(site.id, dateKey, g.id)} title={g.name}>
+                      {g.name}
+                    </Button>
+                  ))}
+                  {assignedCount < cap && (
+                    <Button variant="secondary" size="sm" onClick={() => onEditCell(site.id, dateKey)}>
+                      Нэмэх
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

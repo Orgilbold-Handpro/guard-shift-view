@@ -393,21 +393,19 @@ function SiteRow({
         const guards = assignmentsBySiteDate.get(key) || [];
         const isToday = toKey(d) === toKey(new Date());
         let content: React.ReactNode = (
-          <Button variant="destructive" size="sm" onClick={() => onEditCell(site.id, toKey(d))}>
-            Хоосон
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            {guards.map((g) => (
+              <Button key={g.id} variant="link" size="sm" className="px-0" onClick={() => onEditCell(site.id, toKey(d), g.id)} title={g.name}>
+                {g.name}
+              </Button>
+            ))}
+            {guards.length < (site.capacity ?? 1) && (
+              <Button variant="secondary" size="sm" onClick={() => onEditCell(site.id, toKey(d))}>
+                Нэмэх
+              </Button>
+            )}
+          </div>
         );
-        if (guards.length > 0) {
-          content = (
-            <div className="flex flex-col items-center gap-1">
-              {guards.map((g) => (
-                <Button key={g.id} variant="link" size="sm" className="px-0" onClick={() => onEditCell(site.id, toKey(d), g.id)} title={g.name}>
-                  {g.name}
-                </Button>
-              ))}
-            </div>
-          );
-        }
         return (
           <div
             key={key}
