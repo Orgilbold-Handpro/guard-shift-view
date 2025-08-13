@@ -1,9 +1,11 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Site, Guard } from "./ScheduleBoard";
+
 
 type Props = {
   site: Site;
@@ -24,6 +26,8 @@ export default function MobileSiteCard({ site, days, assignmentsBySiteDate, onEd
           const isToday = dateKey === format(new Date(), "yyyy-MM-dd");
           const isWeekend = d.getDay() === 0 || d.getDay() === 6;
           const guards = assignmentsBySiteDate.get(`${site.id}_${dateKey}`) || [];
+          const assignedCount = guards.length;
+          const cap = site.capacity ?? 1;
 
           return (
             <div
@@ -40,6 +44,12 @@ export default function MobileSiteCard({ site, days, assignmentsBySiteDate, onEd
               </div>
               <div className="max-w-[55%] flex-shrink-0">
                 <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{assignedCount}/{cap}</span>
+                    {assignedCount < cap && (
+                      <Badge variant="destructive" className="h-5 px-1.5">Дутуу</Badge>
+                    )}
+                  </div>
                   {Array.from({ length: site.capacity ?? 1 }).map((_, i) => {
                     const g = guards[i];
                     return g ? (
